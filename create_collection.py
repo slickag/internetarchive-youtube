@@ -6,6 +6,8 @@ import os
 import random
 import shlex
 import subprocess
+import sys
+import requests
 from pathlib import Path
 from typing import Optional
 
@@ -63,8 +65,8 @@ class CreateCollection:
                 _id = Path(video['url']).stem
             video.update({
                 '_id': _id,  # noqa
-                'self.channel_name': self.channel_name,
-                'self.channel_url': self.channel_url
+                'channel_name': self.channel_name,
+                'channel_url': self.channel_url
             })
         return data
 
@@ -102,7 +104,9 @@ class CreateCollection:
         last_ten_ids = [x['_id'] for x in data]
 
         if all(True if x in last_ten_ids else False for x in existing_ids):
-            print(f'{self.channel_name} is up-to-date! Nothing to do...')
+            if not '--hide' in sys.argv:
+                logger.debug(
+                    f'{self.channel_name} is up-to-date! Nothing to do...')
             return
         else:
             data = [x for x in data if x['_id'] not in existing_ids]
@@ -154,11 +158,26 @@ class CreateCollection:
 
 def main() -> None:
     channels = os.getenv('CHANNELS')
-    channels = [x.split(': ') for x in channels.strip().split('\n')]
+    if not channels:
+        raise TypeError('`CHANNELS` cannot be empty!')
+
+    if channels.startswith('http'):
+        channels = requests.get(channels).text
+
+    elif Path(channels).exists():
+        with open(channels) as f:
+            channels = f.read()
+
+    try:
+        channels = json.loads(channels).items()
+    except json.decoder.JSONDecodeError:
+        channels = [tuple(x.split(': ')) for x in channels.strip().split('\n')]
+
     random.shuffle(channels)
 
     for channel in channels:
-        logger.debug(f'Current channel: {channel}')
+        if not '--hide' in sys.argv:
+            logger.debug(f'Current channel: {channel}')
         cc = CreateCollection(channel[0], channel[1])
         _ = cc.create_collection()
     return

@@ -3,6 +3,7 @@
 
 import os
 import random
+import sys
 import time
 import uuid
 from pathlib import Path
@@ -181,4 +182,6 @@ def archive_yt_channel(skip_list: Optional[list] = None) -> None:
 
 if __name__ == '__main__':
     load_dotenv()
+    if '--hide' in sys.argv:
+        logger.remove()
     archive_yt_channel()
